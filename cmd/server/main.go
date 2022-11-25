@@ -2,35 +2,51 @@ package main
 
 import (
 	"log"
+	"net"
 	"net/http"
 
 	"github.com/OliverCardoza/test-grpc-http/internal"
+	"github.com/soheilhy/cmux"
 	"golang.org/x/sync/errgroup"
 )
 
 const (
-	httpPort = "12345"
-	grpcPort = "12346"
+	port = "12345"
 )
 
 func main() {
-	g := &errgroup.Group{}
-	g.Go(startHTTP)
-	g.Go(startGRPC)
+	listener, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	err := g.Wait()
+	m := cmux.New(listener)
+	// Doesn't work, maybe https://github.com/soheilhy/cmux/issues/95
+	// grpcListener := m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
+	grpcListener := m.Match(cmux.HTTP2())
+	anyListener := m.Match(cmux.Any())
+
+	g := &errgroup.Group{}
+	g.Go(func() error { return startGRPC(grpcListener) })
+	g.Go(func() error { return startHTTP(anyListener) })
+	g.Go(func() error {
+		log.Printf("TCP listening on port=%s", port)
+		return m.Serve()
+	})
+
+	err = g.Wait()
 	log.Printf("End error: %v", err)
 }
 
-func startHTTP() error {
+func startHTTP(l net.Listener) error {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("HTTP: %v %v", r.Method, r.URL.String())
 	})
 
-	log.Printf("HTTP listening on port=%s", httpPort)
-	return http.ListenAndServe(":"+httpPort, nil)
+	log.Printf("HTTP listening")
+	return http.Serve(l, nil)
 }
 
-func startGRPC() error {
-	return internal.RunService(grpcPort)
+func startGRPC(l net.Listener) error {
+	return internal.RunService(l)
 }

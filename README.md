@@ -16,14 +16,20 @@ Make HTTP request
 wget -qO- localhost:12345/hello
 ```
 
-Make a gRPC request
+Make a gRPC request with grpcurl
 
 ```bash
 grpcurl -plaintext \
     -proto api/greeting/v0/greeting.proto \
     -d '{"name": "World"}' \
-    localhost:12346 \
+    localhost:12345 \
     greeting.GreetingService/Greeting
+```
+
+Make a gRPC request with go-grpc
+
+```bash
+go run cmd/client/main.go
 ```
 
 Regenerate protos
@@ -39,3 +45,4 @@ protoc api/greeting/v0/greeting.proto \
 
 * https://www.cockroachlabs.com/blog/a-tale-of-two-ports/
 * https://drgarcia1986.medium.com/listen-grpc-and-http-requests-on-the-same-port-263c40cb45ff
+* https://ahmet.im/blog/grpc-http-mux-go/
